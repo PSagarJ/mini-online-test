@@ -1,62 +1,89 @@
 # Online Test Application (MERN)
 
-A complete university online assessment platform engineered with modern full-stack web technologies, featuring real-time timed tests, question bank snapshots, automatic evaluation, anti-cheat deterrence, and a comprehensive administrative dashboard.
+A university online assessment platform built with MongoDB, Express, React and Node.js. Students sign up, take timed 10-question multiple-choice tests drawn from their class's question banks, review their results, and check their attempt history. Administrators manage users and roles, classes, question banks, questions, CSV imports and class results.
+
+## Live Links
+- **Application (Vercel):** https://mini-online-test.vercel.app
+- **Backend API (Render):** https://mini-online-test.onrender.com
+- **API health check:** https://mini-online-test.onrender.com/api/health (should show `{"ok":true}`)
+- **Repository:** https://github.com/PSagarJ/mini-online-test
+
+The backend runs on Render's free tier, so the first request after a quiet period can be slow.
 
 ---
 
 ## Table of Contents
-1. [Overview & Architecture](#overview--architecture)
-2. [The Six Auto-Submit Reasons](#the-six-auto-submit-reasons)
-3. [Main Admin Account](#main-admin-account)
-4. [Environment Variables](#environment-variables)
-5. [Local Setup in Numbered Steps](#local-setup-in-numbered-steps)
-6. [Classes, Banks, and CSV Import Format](#classes-banks-and-csv-import-format)
-7. [API Overview](#api-overview)
-8. [Automated Test Suite](#automated-test-suite)
-9. [Design Decisions](#design-decisions)
-10. [Technical Limitations & Tradeoffs](#technical-limitations--tradeoffs)
-11. [Deployment Guide (MongoDB Atlas, Render, Vercel)](#deployment-guide-mongodb-atlas-render-vercel)
+1. [Features](#features)
+2. [Overview & Architecture](#overview--architecture)
+3. [The Six Auto-Submit Reasons](#the-six-auto-submit-reasons)
+4. [Main Admin Account](#main-admin-account)
+5. [Environment Variables](#environment-variables)
+6. [Local Setup in Numbered Steps](#local-setup-in-numbered-steps)
+7. [Classes, Banks, and CSV Import Format](#classes-banks-and-csv-import-format)
+8. [API Overview](#api-overview)
+9. [Automated Test Suite](#automated-test-suite)
+10. [Design Decisions](#design-decisions)
+11. [Technical Limitations & Tradeoffs](#technical-limitations--tradeoffs)
+12. [Deployment Guide (MongoDB Atlas, Render, Vercel)](#deployment-guide-mongodb-atlas-render-vercel)
+
+---
+
+## Features
+- **Accounts:** student signup and login with email and password. Passwords are hashed with bcrypt, and sessions use JSON Web Tokens.
+- **Timed test:** 10 random multiple-choice questions from the student's class bank, with a 10-minute countdown that submits automatically at zero.
+- **Results:** score, right and wrong answers, the correct answer for each question, and an explanation.
+- **History:** every past attempt with its score, percentage and date.
+- **Anti-cheat deterrence:** tab switches, window switches, reloads, closing the tab and back navigation are counted. Violations 1 to 5 show a warning, and the sixth submits the test automatically.
+- **Admin panel (bonus):** user roles, classes, question banks, questions, CSV import with a template, and class results.
 
 ---
 
 ## Overview & Architecture
-The system is built as a clean JavaScript monorepo:
-- **Server**: Node.js 20+, Express, Mongoose (MongoDB), JSON Web Tokens (jsonwebtoken), bcryptjs, helmet, cors, express-rate-limit, dotenv, csv-parse.
-- **Client**: React 18, Vite, React Router v6, Lucide React icons.
-- **Styling**: Pure CSS with design tokens defined as CSS custom properties (no Tailwind, MUI, Bootstrap, or shadcn/ui).
-- **Snapshot Architecture**: When a student begins a test, an immutable snapshot of 10 questions is cloned directly into the `Attempt` document. Future edits or deletions of questions in the question bank never alter historical test results.
+- **Server:** Node.js 20 or newer, Express, Mongoose (MongoDB), jsonwebtoken, bcryptjs, helmet, cors, express-rate-limit, dotenv, csv-parse.
+- **Client:** React 18, Vite, React Router v6, Lucide React icons.
+- **Styling:** plain CSS with design tokens defined as CSS custom properties. No Tailwind, MUI, Bootstrap or shadcn/ui.
+- **Snapshots:** when a student starts a test, 10 questions are copied into the `Attempt` document. Later edits or deletions of questions never change past results.
 
 ---
 
 ## The Six Auto-Submit Reasons
-Every assessment attempt is monitored by server-side evaluation and client-side anti-cheat deterrence. Submissions completed normally by the student are labelled **"Submitted by you"**. When auto-submitted by the system, one of the following exact reasons is assigned:
+Tests that a student submits manually are labelled **"Submitted by you"** in the history. When the system submits a test, it records one of these reasons:
 
-1. **Time ran out (time_up)**: the timer reached zero while the test was open.
-2. **Tab switches (6) (tab_switch)**: the sixth tab switch.
-3. **Window switches (6) (window_switch)**: the sixth window or app switch.
-4. **Reloads or closing (6) (reload_or_close)**: the sixth reload or closing of the tab.
-5. **Back navigation (6) (navigation)**: the sixth back or forward navigation during the test.
-6. **Time passed while away (deadline_passed)**: the deadline passed while the student was away, so the server scored the saved answers.
+1. **`time_up`**: the timer reached zero while the test was open.
+2. **`tab_switch`**: the sixth tab switch.
+3. **`window_switch`**: the sixth switch to another window or app.
+4. **`reload_or_close`**: the sixth reload or close of the test tab.
+5. **`navigation`**: the sixth back or forward navigation during the test.
+6. **`deadline_passed`**: the deadline passed while the student was away, so the server scored the saved answers.
 
-*(Reasons 2 to 5 share a unified threshold of 6 violations. Violations 1–5 issue visible warnings. Violation 6 auto-submits the exam).*
+Reasons 2 to 5 share one counter with a limit of 6. Violations 1 to 5 show a warning, and the sixth submits the test. Repeated events within one second count only once.
 
-### Result Page Banners:
-- **time_up**: `"Time ran out. Your answers were submitted."`
-- **Violation endings (tab_switch, window_switch, reload_or_close, navigation)**: `"Submitted automatically after 6 violations. The last one was: [label]."`
-- **deadline_passed**: `"The time limit passed before you came back, so your saved answers were scored."`
-- **Manual submission**: No banner is displayed.
+### Result Page Messages
+- `time_up`: "Time ran out. Your answers were submitted."
+- `tab_switch`, `window_switch`, `reload_or_close`, `navigation`: "Submitted automatically after 6 violations. The last one was: [reason]."
+- `deadline_passed`: "The time limit passed before you came back, so your saved answers were scored."
+- Manual submissions show no banner.
 
 ---
 
 ## Main Admin Account
-- **Email**: `adminemail123@gmail.com`
-- **Password**: Hard-coded in `server/src/config/mainAdmin.js` for this university assignment as required by specification. *(The password itself is not printed here to maintain security).*
-- **Rules**:
-  - The main admin always holds the administrator role (`admin`), enforced at the server code level by comparing against `MAIN_ADMIN_EMAIL`.
-  - On every server boot, the main admin account is created if missing and its password hash is verified/updated from `MAIN_ADMIN_PASSWORD`.
-  - The main admin cannot be demoted, deleted, or altered by anyone.
-  - In the admin UI, this account is labelled with a distinct **"Main admin"** badge, and all modification actions are disabled.
-  - No administrator can remove their own admin role.
+- **Email:** `adminemail123@gmail.com`
+- **Password:** `adminpass369#$`
+- The password is hard-coded in `server/src/config/mainAdmin.js` because this university assignment requires it. A production system would keep admin credentials in a secrets manager instead.
+- The main admin always holds the `admin` role. The server enforces this by comparing the login email with `MAIN_ADMIN_EMAIL` in `mainAdmin.js`.
+- The account is created or updated on every server start, so its password always matches `mainAdmin.js`.
+- The main admin cannot be demoted or changed from the admin panel. The panel labels the account **"Main admin"** and disables its actions.
+- No administrator can remove their own admin role.
+
+### Demo Student Accounts
+These are created by `seedDemoData.js` (Step 3b below). Each one has sample completed attempts, so the history page has data to show.
+
+| Email | Password | Class |
+| :--- | :--- | :--- |
+| `student@university.edu` | `password123` | Class 8 (Jane Student) |
+| `alex.smith@university.edu` | `password123` | Class 10 (Alex Smith) |
+
+You can also register a new student account at `/signup`.
 
 ---
 
@@ -64,12 +91,12 @@ Every assessment attempt is monitored by server-side evaluation and client-side 
 
 | Variable | Scope | Description | Default / Example |
 | :--- | :--- | :--- | :--- |
-| `PORT` | Server | Port on which the Express server listens | `5000` |
-| `MONGODB_URI` | Server | MongoDB Atlas or local MongoDB connection URI | `mongodb://localhost:27017/minitest` |
-| `JWT_SECRET` | Server | Cryptographic key used to sign and verify JWT tokens | *(32+ character random secret)* |
-| `CLIENT_URL` | Server | Allowed origin for Cross-Origin Resource Sharing (CORS) | `http://localhost:5173` |
-| `TEST_DURATION_SECONDS`| Server | Duration allocated for each 10-question assessment | `600` (10 minutes) |
-| `VITE_API_URL` | Client | Backend API base URL consumed by Vite frontend | `http://localhost:5000` |
+| `PORT` | Server | Port the Express server listens on | `5000` |
+| `MONGODB_URI` | Server | MongoDB Atlas or local MongoDB connection string | `mongodb://localhost:27017/minitest` |
+| `JWT_SECRET` | Server | Secret used to sign login tokens | A random string of 32+ characters |
+| `CLIENT_URL` | Server | Allowed origin for cross-origin requests (CORS) | `http://localhost:5173` |
+| `TEST_DURATION_SECONDS` | Server | Time allowed for each 10-question test | `600` (10 minutes) |
+| `VITE_API_URL` | Client | Backend base URL used by the Vite frontend | `http://localhost:5000` |
 
 ---
 
@@ -77,7 +104,7 @@ Every assessment attempt is monitored by server-side evaluation and client-side 
 
 ### Step 1: Clone Repository & Install Dependencies
 ```bash
-git clone <repository-url>
+git clone https://github.com/PSagarJ/mini-online-test.git
 cd mini-online-test
 npm install
 npm --prefix server install
@@ -85,175 +112,192 @@ npm --prefix client install
 ```
 
 ### Step 2: Configure Environment Files
-Copy the provided `.env.example` templates to `.env`:
-- Create `server/.env`:
-  ```env
-  PORT=5000
-  MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/minitest?retryWrites=true&w=majority
-  JWT_SECRET=super_secret_jwt_key_at_least_32_characters_long
-  CLIENT_URL=http://localhost:5173
-  TEST_DURATION_SECONDS=600
-  ```
-- Create `client/.env`:
-  ```env
-  VITE_API_URL=http://localhost:5000
-  ```
+Create two files from the `.env.example` templates.
 
-### Step 3: Seed Database
-Seed Class 8 and Class 10 question banks with 12 factually accurate, grade-appropriate questions each:
+`server/.env`:
+```env
+PORT=5000
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/minitest?retryWrites=true&w=majority
+JWT_SECRET=<a random string of 32+ characters>
+CLIENT_URL=http://localhost:5173
+TEST_DURATION_SECONDS=600
+```
+
+`client/.env`:
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Replace `<user>`, `<password>` and `<cluster>` with your MongoDB Atlas details. The `.gitignore` file already excludes `.env` files, so they are never committed.
+
+### Step 3: Seed Classes and Question Banks
 ```bash
 npm run seed
 ```
-*(The seed script is fully idempotent; running it multiple times creates zero duplicate questions).*
+This creates Classes 1 to 12 and the main admin account if they are missing. It then creates four question banks: Class 8 · Mathematics, Class 8 · Science, Class 10 · Mathematics and Class 10 · English. Each bank has 12 questions, except Class 10 · English, which has 13. Running the command again does not add duplicate questions.
+
+### Step 3b: Add the Demo Students (optional)
+Run this after Step 3 to create the two demo students listed under [Demo Student Accounts](#demo-student-accounts):
+```bash
+cd server
+node src/scripts/seedDemoData.js
+cd ..
+```
+It is safe to run again. Existing students and sample attempts are skipped.
 
 ### Step 4: Run Application Concurrently
-Start both backend and frontend development servers concurrently:
 ```bash
 npm run dev
 ```
-- Frontend application: `http://localhost:5173`
+- Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:5000`
-- API Health check: `http://localhost:5000/api/health`
+- API health check: `http://localhost:5000/api/health`
 
 ---
 
 ## Classes, Banks, and CSV Import Format
 
 ### School Classes
-- The server automatically initializes **Class 1** through **Class 12** on boot if no classes exist.
-- Administrators can add new classes or rename existing classes via the Admin panel (`/admin/classes`).
-- Students select their class upon registration or on their dashboard.
+- Classes 1 to 12 are created automatically when the server starts and no classes exist.
+- Administrators can add or rename classes at `/admin/classes`.
+- Students choose their class when they sign up. A student without a class can set one once. After that, only an administrator can change it.
 
 ### Question Banks
-- Question banks are tied to a specific class and subject (e.g. `Class 8 · Science`).
-- Banks are unique on `classId + subject`.
-- Banks are archived rather than deleted to ensure complete audit integrity.
-- Each assessment randomly selects 10 active questions from the bank.
+- Each bank belongs to one class and one subject, for example `Class 8 · Science`. A class can have only one bank per subject.
+- Banks are archived rather than deleted, so past results keep their context.
+- A bank needs at least 10 active questions before students can start a test.
+- Each test picks 10 random active questions and copies them into the attempt.
+- Administrators can edit questions at any time. They can also archive, restore or delete them. Past results are not affected.
 
 ### CSV Import Specification
-Administrators can batch import up to 500 questions (up to 1 MB) into any question bank via the Bank Detail view.
-- **Exact Header Row**:
+Administrators can import up to 500 questions (1 MB maximum) into a bank from the bank detail page.
+
+- **Header row (exact):**
   ```csv
   question,option_a,option_b,option_c,option_d,correct,explanation
   ```
-- **Validation Rules**:
-  - `question`: Non-empty string.
-  - `option_a`, `option_b`, `option_c`, `option_d`: Exactly four distinct non-empty strings.
-  - `correct`: Single letter `A`, `B`, `C`, or `D` (case-insensitive).
-  - `explanation`: Optional single-sentence rationale.
-  - Commas within questions or options are fully supported when enclosed in standard double quotes (`"..."`).
-  - **Atomic Validation**: If any single row contains an error, the entire import is rejected and detailed row-by-row errors are returned. No partial data is saved.
-- **Template Download**: Administrators can click the **"Download template"** button in the UI to obtain a formatted CSV template.
+- **Rules for each row:**
+  - `question`: required.
+  - `option_a` to `option_d`: four different, non-empty options.
+  - `correct`: `A`, `B`, `C` or `D`, in any letter case.
+  - `explanation`: optional. It is shown on the result page.
+  - Commas inside a question or option must be inside double quotes, for example `"Paris, France"`.
+- **All or nothing:** if any row is invalid, the whole import is rejected and the errors are listed by row number. Nothing is saved.
+- **Template:** click **Download template** on the bank page to get a correctly formatted file.
 
 ---
 
 ## API Overview
-
-All JSON endpoints reside under `/api`. Protected routes require `Authorization: Bearer <token>`.
+All JSON endpoints live under `/api`. Protected routes require the header `Authorization: Bearer <token>`.
 
 ### Public & Auth
-- `GET /api/health` -> `{ ok: true }`
-- `GET /api/classes` -> `{ classes }` (public list for signup dropdown)
+- `GET /api/health` -> `{"ok":true}`
+- `GET /api/classes` -> `{ classes }` (public list for the signup dropdown)
 - `POST /api/auth/signup` `{ name, email, password, classId? }` -> 201 `{ token, user }`
 - `POST /api/auth/login` `{ email, password }` -> 200 `{ token, user }`
 - `GET /api/auth/me` -> 200 `{ user }`
-- `PATCH /api/auth/me/class` `{ classId }` -> 200 `{ user }` (sets class if unset)
+- `PATCH /api/auth/me/class` `{ classId }` -> 200 `{ user }` (sets the class only if none is set)
 
 ### Student Assessment
-- `GET /api/banks` -> `{ banks }` (active banks in student's class with question counts and user's best score)
-- `POST /api/attempts` `{ bankId }` -> Starts 10-question test or returns active in-progress attempt
-- `GET /api/attempts/active` -> Returns current active in-progress attempt or `{ attempt: null }`
-- `PUT /api/attempts/:id/answers` `{ answers }` -> Autosaves student selections
-- `POST /api/attempts/:id/submit` `{ answers }` -> Finalizes exam and computes score
-- `POST /api/attempts/:id/violations` `{ type }` -> Records anti-cheat infraction (auto-submits on 6th)
-- `GET /api/attempts` -> History of user's past attempts, newest first
-- `GET /api/attempts/:id` -> Detailed result review for attempt owner
+- `GET /api/banks` -> `{ banks }` (active banks for the student's class, with question counts and the best score so far)
+- `POST /api/attempts` `{ bankId }` -> starts a 10-question test, or returns the active in-progress attempt
+- `GET /api/attempts/active` -> the current in-progress attempt, or `{ attempt: null }`
+- `PUT /api/attempts/:id/answers` `{ answers }` -> autosaves the student's selections
+- `POST /api/attempts/:id/submit` `{ answers }` -> finalizes the test and computes the score
+- `POST /api/attempts/:id/violations` `{ type }` -> records an anti-cheat violation (auto-submits on the sixth)
+- `GET /api/attempts` -> the user's past attempts, newest first
+- `GET /api/attempts/:id` -> detailed result for the attempt's owner
 
 ### Admin Management (`admin` role required)
-- `GET /api/admin/users?search=&role=` -> User list with class names
-- `PATCH /api/admin/users/:id` `{ role?, classId? }` -> Update role/class (main admin and self protected)
-- `GET /api/admin/classes` -> List classes
-- `POST /api/admin/classes` `{ name }` -> Create new class
-- `PATCH /api/admin/classes/:id` `{ name }` -> Rename class
-- `GET /api/admin/banks?classId=` -> List banks with active question counts
-- `POST /api/admin/banks` `{ classId, subject }` -> Create bank
-- `PATCH /api/admin/banks/:id` `{ subject?, archived? }` -> Archive/restore/rename bank
-- `GET /api/admin/banks/:id/questions` -> List questions in bank
-- `POST /api/admin/banks/:id/questions` -> Add question
-- `PUT /api/admin/questions/:id` -> Update question
-- `PATCH /api/admin/questions/:id` `{ archived }` -> Archive/restore question
-- `DELETE /api/admin/questions/:id` -> Delete question (204)
-- `POST /api/admin/banks/:id/import` `{ csv }` -> Validate & import CSV batch
-- `GET /api/admin/results?classId=&bankId=` -> Comprehensive score report
+- `GET /api/admin/users?search=&role=` -> user list with class names
+- `PATCH /api/admin/users/:id` `{ role?, classId? }` -> updates role or class (the main admin and the admin's own role are protected)
+- `GET /api/admin/classes` -> list classes
+- `POST /api/admin/classes` `{ name }` -> create a class
+- `PATCH /api/admin/classes/:id` `{ name }` -> rename a class
+- `GET /api/admin/banks?classId=` -> list banks with active question counts
+- `POST /api/admin/banks` `{ classId, subject }` -> create a bank
+- `PATCH /api/admin/banks/:id` `{ subject?, archived? }` -> rename, archive or restore a bank
+- `GET /api/admin/banks/:id/questions` -> list questions in a bank
+- `POST /api/admin/banks/:id/questions` -> add a question
+- `PUT /api/admin/questions/:id` -> update a question
+- `PATCH /api/admin/questions/:id` `{ archived }` -> archive or restore a question
+- `DELETE /api/admin/questions/:id` -> delete a question (204)
+- `POST /api/admin/banks/:id/import` `{ csv }` -> validate and import a CSV batch
+- `GET /api/admin/results?classId=&bankId=` -> class score report
 
 ---
 
 ## Automated Test Suite
-Run the test suite natively with Node.js test runner:
+Run the tests from the project root with Node's built-in test runner:
 ```bash
 npm test
 ```
-The test suite validates:
-1. **Scoring Engine**: Correct answer increments, partial/unanswered scoring, percentage calculation.
-2. **Deadline & Grace Period**: Expiry rule cutoff, `time_up` (within 15s) vs `deadline_passed` (> 15s).
-3. **Anti-Cheat Counter**: Warnings 1–5, auto-finalize on 6th violation with correct reason, 1-second debounce, post-finalization idempotence.
-4. **CSV Parsing**: Valid rows, quoted commas, atomic import rejection on invalid rows.
-5. **Role Security**: Main admin demotion immunity, self-demotion prevention.
+There are 16 tests in five files:
+
+1. **Scoring (3 tests):** mixed correct, wrong and unanswered answers; 10 out of 10 gives 100%; no answers gives 0%.
+2. **Deadline and grace period (3 tests):** attempts stay in progress during the exam and the grace period; after the deadline plus 15 seconds, an attempt is finalized with the `deadline_passed` reason; submission timing is correct for manual, `time_up` and `deadline_passed` submissions.
+3. **Anti-cheat counter (4 tests):** warnings for violations 1 to 5; auto-submit on the sixth violation with the matching reason; repeated events within one second are ignored; violations after the test is finalized are ignored.
+4. **CSV import (3 tests):** valid rows and quoted commas are parsed; one invalid row rejects the whole import; an incorrect correct-answer letter is rejected.
+5. **Role security (3 tests):** the main admin cannot be demoted or changed; no administrator can remove their own admin role; administrators can promote students and demote other administrators, except the main admin.
 
 ---
 
 ## Design Decisions
-- **Typography**: Editorial serif font (*Newsreader*) for titles, wordmarks, and score numerals; clean sans-serif (*Inter*) for all UI controls and forms; tabular figures (`tabular-nums`) for timers, metrics, and dates.
-- **Color Tokens**: Natural paper surface (`#F6F4EF`), crisp card surface (`#FFFFFF`), deep ink (`#1B1A17`), and dignified evergreen accent (`#1E5A47`). High contrast ratio meeting WCAG AA requirements (4.5:1).
-- **Hairline Aesthetic**: Crisp 1px solid hairline borders (`#E3DED3`) rather than heavy drop shadows, providing an academic, reliable feel.
-- **Dense Admin Tooling**: Admin tables prioritize information density, rapid inline filtering, and clear confirmation modals over decorative cards.
+- **Typography:** *Newsreader* (serif) for headings and score figures, and *Inter* (sans-serif) for interface text and forms.
+- **Colors:** paper background `#F6F4EF`, white cards `#FFFFFF`, ink text `#1B1A17`, muted text `#6B675E`, evergreen accent `#1E5A47`, green for correct answers `#2D7A4F`, red for wrong answers `#B0432E`, and amber for warnings `#9A5A0E`.
+- **Contrast:** the main text color pairs meet WCAG AA (4.5:1 for normal text). The lowest is muted text on the paper background, at 5.1:1.
+- **Hairline borders:** 1px borders in `#E3DED3` separate panels and tables.
+- **Admin tables:** dense layouts with inline filtering, so staff can work through many records quickly.
 
 ---
 
 ## Technical Limitations & Tradeoffs
-1. **Deterrence vs True Proctoring**: Browser event listeners (`visibilitychange`, `blur`, `popstate`, `beforeunload`) deter tab switching and window switching. However, client-side browsers cannot prevent students from consulting separate physical devices (e.g., smartphones).
-2. **Local Storage Token Storage**: Authentication tokens are stored in `localStorage` for seamless SPA persistence across page refreshes. In production banking/enterprise environments, `HttpOnly` Secure cookies are preferred to mitigate XSS exposure.
-3. **Render Free Tier Spin-Down**: On Render's free tier, the backend web service spins down after 15 minutes of inactivity. The initial request may experience a 30–50 second cold start delay.
-4. **Hard-Coded Password**: For university grading compliance, the main admin password is hard-coded in `server/src/config/mainAdmin.js`. In commercial production, admin passwords must always be securely hashed and provisioned through external secrets managers or SSO.
+1. **Deterrence, not proctoring:** browser events (`visibilitychange`, `blur`, `popstate`, `beforeunload`) detect tab switches, window switches and back navigation. They cannot stop a student from using a phone or another device.
+2. **Tokens in localStorage:** login tokens are kept in `localStorage` so that a session survives page reloads. Production systems usually use HttpOnly, Secure cookies, which reduce exposure to cross-site scripting.
+3. **Render free tier:** the backend sleeps after about 15 minutes without requests, so the first request can take a while.
+4. **Hard-coded admin password:** done only to meet the assignment brief. A production system would load admin credentials from a secrets manager or single sign-on.
 
 ---
 
 ## Deployment Guide (MongoDB Atlas, Render, Vercel)
 
 ### Phase A: MongoDB Atlas Setup
-1. Log in to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and deploy an M0 Free Tier cluster.
-2. Under **Database Access**, create a user with read and write privileges on `minitest`.
-3. Under **Network Access**, add `0.0.0.0/0` to allow connections from Render.
-4. Copy the connection string format:
-   `mongodb+srv://<username>:<password>@cluster.mongodb.net/minitest?retryWrites=true&w=majority`
+1. Log in to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) and create an M0 free cluster.
+2. Under **Database Access**, create a database user with read and write access to the `minitest` database.
+3. Under **Network Access**, add `0.0.0.0/0` so that Render can connect.
+4. Copy the connection string and replace the username and password:
+   `mongodb+srv://<username>:<password>@<cluster>.mongodb.net/minitest?retryWrites=true&w=majority`
 
-### Phase B: Backend Deployment on Render
-1. Log in to [Render](https://render.com) and create a **New Web Service** pointing to your repository.
-2. Configure settings:
-   - **Root Directory**: `server`
-   - **Build Command**: `npm install`
-   - **Start Command**: `npm start`
-3. In the **Environment** tab, set:
+### Phase B: Backend on Render
+1. Log in to [Render](https://render.com) and create a **New Web Service** from this repository.
+2. Settings:
+   - **Root Directory:** `server`
+   - **Build Command:** `npm install`
+   - **Start Command:** `npm start`
+3. Under **Environment**, set:
    - `PORT`: `5000`
-   - `MONGODB_URI`: `<Your MongoDB Atlas connection URI>`
-   - `JWT_SECRET`: `<A random string of 32+ characters>`
+   - `MONGODB_URI`: your Atlas connection string
+   - `JWT_SECRET`: a random string of 32+ characters
    - `TEST_DURATION_SECONDS`: `600`
-   - `CLIENT_URL`: `http://localhost:5173` (temporarily until Vercel URL is generated)
-4. Deploy the service and note your live URL: `https://<service-name>.onrender.com`.
+   - `CLIENT_URL`: `http://localhost:5173` for now. You will update it in Phase D.
+4. Deploy the service, then open `https://<your-render-url>/api/health`. It should show `{"ok":true}`.
 
-### Phase C: Frontend Deployment on Vercel
-1. Log in to [Vercel](https://vercel.com) and import the repository.
-2. Configure settings:
-   - **Root Directory**: `client`
-   - **Framework Preset**: `Vite`
-   - **Build Command**: `vite build`
-   - **Output Directory**: `dist`
-3. **Environment Variable (Set before deploying)**:
-   - `VITE_API_URL`: `https://<service-name>.onrender.com` (Your live Render backend URL)
-4. Deploy the project and note your production URL: `https://<project-name>.vercel.app`.
+### Phase C: Frontend on Vercel
+1. Log in to [Vercel](https://vercel.com) and import this repository.
+2. Settings:
+   - **Root Directory:** `client`
+   - **Framework Preset:** `Vite`
+   - **Build Command:** `npm run build`
+   - **Output Directory:** `dist`
+3. Under **Environment Variables**, set `VITE_API_URL` to your Render URL, for example `https://<your-render-url>`. Set it before the first deployment. Vite builds this value into the app, so if you change it later, you must redeploy.
+4. Deploy, and note your production URL, for example `https://<your-project>.vercel.app`.
 
-### Phase D: Finalize CORS on Render
-1. In the Render Dashboard, update `CLIENT_URL` to your live Vercel URL:
-   `CLIENT_URL = https://<project-name>.vercel.app`
-2. Save changes to trigger an automatic reload.
-3. Review [DEPLOY_CHECKLIST.md](file:///d:/mini-online-test/DEPLOY_CHECKLIST.md) for verification steps.
+### Phase D: Update CORS on Render
+1. In the Render dashboard, set `CLIENT_URL` to your Vercel URL, for example `https://<your-project>.vercel.app`.
+2. Save. Render restarts the service with the new value.
+3. Work through the full list in [DEPLOY_CHECKLIST.md](DEPLOY_CHECKLIST.md).
+
+### Verifying the Live App
+- `/api/health` returns `{"ok":true}`.
+- Log in as the main admin and open the admin panel.
+- Log in as a demo student, start a test, then check the result and history pages.
