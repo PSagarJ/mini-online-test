@@ -234,3 +234,26 @@ a {
   max-width: 480px;
   padding: var(--space-6);
 }
+
+/* Responsive Table Wrapper for Mobile (360px+) */
+@media (max-width: 768px) {
+  .card[style*="overflow: hidden"] {
+    overflow-x: auto !important;
+  }
+  table {
+    min-width: 600px;
+  }
+  .desktop-table-container table {
+    min-width: 700px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container, .container-wide {
+    padding-left: var(--space-3);
+    padding-right: var(--space-3);
+  }
+  .card {
+    padding: var(--space-4);
+  }
+}
