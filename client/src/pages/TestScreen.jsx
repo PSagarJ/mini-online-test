@@ -24,6 +24,7 @@ export const TestScreen = () => {
   const [violationCount, setViolationCount] = useState(0);
   const [warningModalOpen, setWarningModalOpen] = useState(false);
   const [currentWarningNumber, setCurrentWarningNumber] = useState(0);
+  const [lastViolationAction, setLastViolationAction] = useState('Switching tabs');
   const isFinishedRef = useRef(false);
   const serverOffsetRef = useRef(0);
   const lastTabSwitchTimeRef = useRef(0);
@@ -61,6 +62,14 @@ export const TestScreen = () => {
   // Record anti-cheat violation
   const recordViolation = useCallback(async (type) => {
     if (isFinishedRef.current || isAdmin) return;
+
+    const actionMap = {
+      tab_switch: 'Switching tabs',
+      window_switch: 'Switching windows',
+      reload_or_close: 'Reloading or closing',
+      navigation: 'Navigating away'
+    };
+    setLastViolationAction(actionMap[type] || 'Switching tabs');
 
     try {
       const res = await api.post(`/attempts/${attemptId}/violations`, { type });
@@ -668,7 +677,7 @@ export const TestScreen = () => {
             <p style={{ fontSize: '14px', color: 'var(--ink)', lineHeight: 1.5, marginBottom: 'var(--space-6)' }}>
               {currentWarningNumber === 5
                 ? 'Final warning. The next violation submits your test now.'
-                : `Warning ${currentWarningNumber} of 5. Switching tabs is recorded. At 6 warnings your test is submitted automatically.`}
+                : `Warning ${currentWarningNumber} of 5. ${lastViolationAction} is recorded. At 6 warnings your test is submitted automatically.`}
             </p>
 
             <button
