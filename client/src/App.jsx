@@ -13,6 +13,13 @@ import { ResultScreen } from './pages/ResultScreen';
 import { HistoryScreen } from './pages/HistoryScreen';
 import { NotFound } from './pages/NotFound';
 
+// Admin Pages
+import { AdminUsers } from './pages/admin/AdminUsers';
+import { AdminClasses } from './pages/admin/AdminClasses';
+import { AdminBanks } from './pages/admin/AdminBanks';
+import { AdminBankDetail } from './pages/admin/AdminBankDetail';
+import { AdminResults } from './pages/admin/AdminResults';
+
 // Layout with Navbar
 const AppLayout = () => (
   <>
@@ -44,10 +51,18 @@ export const App = () => {
               <Route path="/" element={<Dashboard />} />
               <Route path="/results/:attemptId" element={<ResultScreen />} />
               <Route path="/history" element={<HistoryScreen />} />
-              
-              {/* Admin Routes placeholder - will mount admin pages in Phase 6 */}
+            </Route>
+          </Route>
+
+          {/* Admin Protected Routes */}
+          <Route element={<ProtectedRoute requireAdmin={true} />}>
+            <Route element={<AppLayout />}>
               <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-              <Route path="/admin/*" element={<Outlet />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/classes" element={<AdminClasses />} />
+              <Route path="/admin/banks" element={<AdminBanks />} />
+              <Route path="/admin/banks/:bankId" element={<AdminBankDetail />} />
+              <Route path="/admin/results" element={<AdminResults />} />
             </Route>
           </Route>
 
