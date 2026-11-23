@@ -6,6 +6,8 @@ const rateLimit = require('express-rate-limit');
 const healthRoutes = require('./routes/health');
 const classesRoutes = require('./routes/classes');
 const authRoutes = require('./routes/auth');
+const banksRoutes = require('./routes/banks');
+const attemptsRoutes = require('./routes/attempts');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -60,6 +62,8 @@ app.use('/api/auth', authLimiter);
 app.use('/api/health', healthRoutes);
 app.use('/api/classes', classesRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/banks', banksRoutes);
+app.use('/api/attempts', attemptsRoutes);
 
 // Fallback for unmatched API routes
 app.use('/api/*', (req, res) => {
