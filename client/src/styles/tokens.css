@@ -1,0 +1,54 @@
+:root {
+  /* Color Palette */
+  --paper: #F6F4EF;
+  --surface: #FFFFFF;
+  --ink: #1B1A17;
+  --muted-text: #6B675E;
+  --hairline: #E3DED3;
+  --accent: #1E5A47;
+  --accent-hover: #174738;
+  --accent-light: rgba(30, 90, 71, 0.08);
+  --correct: #2D7A4F;
+  --correct-bg: #EAF4EE;
+  --wrong: #B0432E;
+  --wrong-bg: #FAECE9;
+  --warning: #9A5A0E;
+  --warning-bg: #FBF4EB;
+
+  /* Typography */
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  /* Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radii */
+  --radius-sm: 8px;   /* Controls, buttons, inputs */
+  --radius-md: 12px;  /* Cards, modals */
+
+  /* Borders & Shadows */
+  --border-hairline: 1px solid var(--hairline);
+  --shadow-overlay: 0 4px 16px rgba(27, 26, 23, 0.08);
+
+  /* Layout */
+  --max-width-content: 880px;
+  --max-width-wide: 1200px;
+
+  /* Transitions */
+  --transition-speed: 150ms;
+  --transition-ease: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-speed: 0ms;
+  }
+}
