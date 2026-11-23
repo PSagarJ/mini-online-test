@@ -8,6 +8,7 @@ const classesRoutes = require('./routes/classes');
 const authRoutes = require('./routes/auth');
 const banksRoutes = require('./routes/banks');
 const attemptsRoutes = require('./routes/attempts');
+const adminRoutes = require('./routes/admin');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/classes', classesRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/banks', banksRoutes);
 app.use('/api/attempts', attemptsRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Fallback for unmatched API routes
 app.use('/api/*', (req, res) => {
